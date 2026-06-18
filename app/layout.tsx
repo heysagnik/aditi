@@ -1,34 +1,41 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/* Inter — closest free substitute for Linear Display + Linear Text */
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+/* JetBrains Mono — closest free substitute for Linear Mono */
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Aditi",
-  description: "Aditi — AI support platform + agent",
+  title: { default: "Aditi", template: "%s — Aditi" },
+  description:
+    "Aditi — AI-powered customer support platform. Intelligent triage, seamless escalation, real-time conversations.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased light`}
+      className={`${inter.variable} ${jetbrainsMono.variable} h-full dark`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body
+        className="min-h-full flex flex-col antialiased"
+        style={{ background: "var(--canvas)", color: "var(--ink)" }}
+      >
         {children}
       </body>
     </html>

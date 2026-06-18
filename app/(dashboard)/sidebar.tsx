@@ -3,31 +3,36 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOutAction } from "@/lib/actions";
-import { BookOpen, Ticket, MessageSquare, LogOut, BotMessageSquare } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { BookOpen, Ticket, MessageSquare, LogOut } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 const navItems = [
   { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
-  { href: "/tickets", label: "Tickets", icon: Ticket },
-  { href: "/conversations", label: "Conversations", icon: MessageSquare },
+  { href: "/tickets",        label: "Tickets",        icon: Ticket },
+  { href: "/conversations",  label: "Conversations",  icon: MessageSquare },
 ];
 
 export function Sidebar({ admin }: { admin: any }) {
   const pathname = usePathname();
 
+  const initials =
+    admin.name
+      ?.split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) ?? "A";
+
   return (
-    <aside className="flex w-64 flex-col border-r border-zinc-200 bg-zinc-50/50 px-4 py-6 backdrop-blur-xl">
-      <div className="mb-8 px-2 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm">
-          <BotMessageSquare className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-zinc-900">Aditi</h1>
-          <p className="text-xs font-medium text-zinc-500">Support Platform</p>
-        </div>
+    <aside className="flex w-[220px] shrink-0 flex-col border-r border-[#e5e3df] bg-[#ffffff]">
+      <div className="flex h-14 items-center gap-2.5 border-b border-[#e5e3df] px-4">
+        <Logo className="h-6 w-6 text-[#1a1a1a]" />
+        <span className="text-[15px] font-semibold tracking-[-0.4px] text-[#1a1a1a]">
+          Aditi
+        </span>
       </div>
 
-      <nav className="flex flex-col gap-1.5">
+      <nav className="flex flex-col gap-0.5 px-2 py-3">
         {navItems.map((item) => {
           const isActive = pathname?.startsWith(item.href);
           const Icon = item.icon;
@@ -35,41 +40,45 @@ export function Sidebar({ admin }: { admin: any }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-in-out ${
-                isActive
-                  ? "bg-white text-primary shadow-sm ring-1 ring-zinc-200"
-                  : "text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900"
+              className={`group relative flex items-center gap-2.5 rounded-[6px] px-2.5 py-2 transition-colors ${
+                isActive ? "bg-[#f6f5f4] text-[#1a1a1a]" : "text-[#787671] hover:bg-[#fafaf9]"
               }`}
             >
-              <Icon
-                className={`h-4 w-4 transition-colors ${
-                  isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-600"
-                }`}
-              />
-              {item.label}
+              {isActive && (
+                <div className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-[2px] bg-[#5645d4]" />
+              )}
+              <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-[#1a1a1a]" : "text-[#bbb8b1]"}`} />
+              <span className={`text-[14px] leading-[1.50] ${isActive ? "font-medium" : "font-normal"}`}>
+                {item.label}
+              </span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto flex flex-col gap-3 border-t border-zinc-200 pt-4">
-        <div className="flex items-center gap-3 px-2">
-          <Avatar className="h-9 w-9 border border-zinc-200">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-              {admin.name?.charAt(0).toUpperCase() || "A"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col overflow-hidden">
-            <p className="truncate text-sm font-semibold text-zinc-900">{admin.name}</p>
-            <p className="truncate text-xs font-medium text-zinc-500">{admin.email}</p>
+      <div className="flex-1" />
+
+      <div className="mx-2 mb-3 rounded-[8px] bg-[#f6f5f4] border border-[#e5e3df] p-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5645d4] text-[11px] font-semibold text-white">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium leading-[1.30] text-[#1a1a1a]">
+              {admin.name}
+            </p>
+            <p className="truncate text-[12px] leading-[1.40] text-[#787671]">
+              {admin.email}
+            </p>
           </div>
         </div>
-        <form action={signOutAction} className="mt-1">
+
+        <form action={signOutAction} className="mt-2">
           <button
             type="submit"
-            className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-zinc-600 transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-[13px] text-[#787671] transition-colors hover:bg-[#e5e3df] hover:text-[#1a1a1a]"
           >
-            <LogOut className="h-4 w-4 text-zinc-400 transition-colors group-hover:text-red-500" />
+            <LogOut className="h-3.5 w-3.5" />
             Sign out
           </button>
         </form>

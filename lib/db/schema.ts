@@ -87,25 +87,12 @@ export const conversations = pgTable("conversations", {
   })
     .notNull()
     .default("active"),
+  aiPaused: boolean("ai_paused").notNull().default(false),
   ticketId: uuid("ticket_id").references((): AnyPgColumn => tickets.id),
   assignedAdminId: text("assigned_admin_id").references(() => user.id),
+  messages: jsonb("messages").default([]).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-export const messages = pgTable("messages", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  conversationId: uuid("conversation_id")
-    .notNull()
-    .references(() => conversations.id, { onDelete: "cascade" }),
-  role: text("role", {
-    enum: ["user", "assistant", "tool"],
-  }).notNull(),
-  content: text("content"),
-  toolName: text("tool_name"),
-  toolArgs: jsonb("tool_args"),
-  toolResult: jsonb("tool_result"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const tickets = pgTable("tickets", {

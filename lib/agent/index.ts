@@ -1,19 +1,22 @@
 import { streamText, stepCountIs } from "ai";
-import { vertex } from "@ai-sdk/google-vertex";
-import { aditiTools } from "./tools";
+import { groq } from "@ai-sdk/groq";
+import { getAditiTools } from "./tools";
 import { db } from "@/lib/db";
-import { messages } from "@/lib/db/schema";
+import { conversations } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { applyTokenBudget } from "./token-budget";
+import { queuedStreamText } from "./groq-client";
+import { randomUUID } from "crypto";
+
+// Use any for flexible message type compatibility with AI SDK
+type AnyMessage = {
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  [key: string]: unknown;
+};
 
 /**
  * Run the Aditi agent on a conversation.
- *
- * 1. Loads conversation history from the messages table.
- * 2. Calls streamText with the system prompt, history, and tools.
- * 3. Returns the stream result — callers pipe it to a Response.
- *
- * `onFinish` is provided so the caller can persist the assistant's
- * final message and any tool calls after streaming completes.
  */
 export async function runAditi({
   systemPrompt,
@@ -24,63 +27,141 @@ export async function runAditi({
   conversationId: string;
   customerMessage: string;
 }) {
-  // Load message history for context
-  const history = await db
-    .select({
-      role: messages.role,
-      content: messages.content,
-    })
-    .from(messages)
-    .where(eq(messages.conversationId, conversationId))
-    .orderBy(messages.createdAt);
+  // Load message history for context (including tool fields)
+  const [conv] = await db
+    .select({ messages: conversations.messages })
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .limit(1);
 
-  // Map DB role → AI SDK role
-  const coreMessages = history.map((m) => ({
-    role: m.role === "user" ? ("user" as const) : ("assistant" as const),
-    content: m.content ?? "",
-  }));
+  const history = (conv?.messages as any[]) || [];
 
-  // Append the new customer message
-  coreMessages.push({
+  // Convert DB messages to AI SDK format with proper tool handling
+  const coreMessages: any[] = [];
+  let lastToolCallId = "";
+  
+  for (const m of history) {
+    if (m.role === "assistant" && m.toolName) {
+      lastToolCallId = m.id;
+      coreMessages.push({
+        role: "assistant",
+        content: [
+          ...(m.content ? [{ type: "text", text: m.content }] : []),
+          {
+            type: "tool-call",
+            toolCallId: lastToolCallId,
+            toolName: m.toolName,
+            args: m.toolArgs ?? {},
+          }
+        ],
+      });
+    } else if (m.role === "tool") {
+      coreMessages.push({
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: lastToolCallId || m.id,
+            toolName: m.toolName,
+            result: m.toolResult,
+          }
+        ],
+      });
+    } else {
+      coreMessages.push({
+        role: m.role === "user" ? "user" : "assistant",
+        content: m.content ?? "",
+      });
+    }
+  }
+
+  const budgetedMessages = await applyTokenBudget(coreMessages, systemPrompt);
+
+  budgetedMessages.push({
     role: "user" as const,
     content: customerMessage,
   });
 
-  const model = vertex(process.env.GEMINI_MODEL ?? "gemini-3.1-pro");
+  const model = groq(process.env.GROQ_MODEL ?? "qwen/qwen3.6-27b");
 
-  const result = streamText({
-    model,
-    system: systemPrompt,
-    messages: coreMessages,
-    tools: aditiTools,
-    stopWhen: stepCountIs(5),
-  });
+  const result = await queuedStreamText(() =>
+    streamText({
+      model,
+      system: systemPrompt,
+      messages: budgetedMessages as any,
+      tools: getAditiTools(conversationId),
+      stopWhen: stepCountIs(5),
+    })
+  );
 
   return result;
 }
 
 /**
- * Persist an assistant or tool message after the stream finishes.
+ * Persist all generated messages (including tool calls and results) after the stream finishes.
  */
-export async function persistAssistantMessage({
-  conversationId,
-  content,
-  toolName,
-  toolArgs,
-  toolResult,
-}: {
-  conversationId: string;
-  content?: string;
-  toolName?: string;
-  toolArgs?: unknown;
-  toolResult?: unknown;
-}) {
-  await db.insert(messages).values({
-    conversationId,
-    role: "assistant",
-    content: content ?? null,
-    toolName: toolName ?? null,
-    toolArgs: toolArgs ? JSON.parse(JSON.stringify(toolArgs)) : null,
-    toolResult: toolResult ? JSON.parse(JSON.stringify(toolResult)) : null,
+export async function persistGeneratedMessages(
+  conversationId: string,
+  generatedMessages: any[]
+) {
+  const [conv] = await db
+    .select({ messages: conversations.messages })
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .limit(1);
+
+  if (!conv) return;
+
+  const currentMessages = (conv.messages as any[]) || [];
+
+  const formattedMessages = generatedMessages.map((m) => {
+    // If it's a tool message (tool result)
+    if (m.role === "tool") {
+      return {
+        id: randomUUID(),
+        role: "tool", // Preserve the tool role instead of coercing to assistant
+        content: null,
+        toolName: m.content[0]?.toolName,
+        toolArgs: null,
+        toolResult: m.content[0]?.output ?? m.content[0]?.result, // Support both output and result
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    let textContent = null;
+    let toolName = null;
+    let toolArgs = null;
+
+    if (typeof m.content === "string") {
+      textContent = m.content;
+      toolName = m.toolCalls?.[0]?.toolName || null;
+      toolArgs = m.toolCalls?.[0]?.args || null;
+    } else if (Array.isArray(m.content)) {
+      const textParts = m.content.filter((p: any) => p.type === "text").map((p: any) => p.text);
+      if (textParts.length > 0) textContent = textParts.join("\n");
+      
+      const toolCallPart = m.content.find((p: any) => p.type === "tool-call");
+      if (toolCallPart) {
+        toolName = toolCallPart.toolName;
+        toolArgs = toolCallPart.args || toolCallPart.input || null;
+      }
+    }
+
+    return {
+      id: randomUUID(),
+      role: "assistant",
+      content: textContent,
+      toolName,
+      toolArgs,
+      toolResult: null,
+      createdAt: new Date().toISOString(),
+    };
   });
+
+  await db
+    .update(conversations)
+    .set({
+      messages: [...currentMessages, ...formattedMessages],
+    })
+    .where(eq(conversations.id, conversationId));
 }

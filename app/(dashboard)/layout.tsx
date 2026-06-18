@@ -6,16 +6,15 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // DAL check — redirects to /login if not an admin.
   const admin = await requireAdmin();
 
   return (
-    <div className="flex h-screen w-full bg-zinc-50/30 overflow-hidden">
-      {/* Sidebar */}
+    <div
+      className="flex h-screen w-full overflow-hidden"
+      style={{ background: "var(--canvas)" }}
+    >
       <Sidebar admin={admin} />
-
-      {/* Main content */}
-      <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden relative">
+      <main className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
         {children}
       </main>
     </div>
