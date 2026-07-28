@@ -21,7 +21,7 @@
     "@tailwindcss/typography": "^0.5.20",
     "ai": "^6.0.207",
     "bcryptjs": "^3.0.3",
-    "better-auth": "^1.6.19",
+    "better-auth": "^1.6.22",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
