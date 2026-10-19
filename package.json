@@ -14,12 +14,12 @@
     "db:seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
-    "@ai-sdk/groq": "^3.0.42",
-    "@ai-sdk/react": "^3.0.209",
+    "@ai-sdk/groq": "^3.0.64",
+    "@ai-sdk/react": "^3.0.280",
     "@base-ui/react": "^1.5.0",
     "@neondatabase/serverless": "^1.1.0",
     "@tailwindcss/typography": "^0.5.20",
-    "ai": "^6.0.207",
+    "ai": "^6.0.277",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.19",
     "class-variance-authority": "^0.7.1",
